@@ -1,0 +1,14 @@
+# Ignore file
+
+## Julia
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+deps/deps.jl
+
+## IPython files
+.ipynb_checkpoints/
+
+## stuff in the source
+src/*.gif
+src/*.mp4
