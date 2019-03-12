@@ -1,8 +1,12 @@
 # nPendulum
 by T. Fitzgerald
 
+![Example 4-pendulum](sample_anim.gif)
+
 ## Purpose
-For fun.  This was a project I made to get to know [Julia](https://julialang.org/) better, and interact with some new technologies.  This code sets up the equations of motion of $N$ simple pendulums using the [Udwadia-Kalaba equation](https://en.wikipedia.org/wiki/Udwadia%E2%80%93Kalaba_equation).  This set of $4N$ equations are integrated using a [Gauss-Legendre](https://en.wikipedia.org/wiki/Gauss%E2%80%93Legendre_method) implicit Runge-Kutta method.
+For fun.  This was a project I made to get to know [Julia](https://julialang.org/) better, and interact with some new technologies.  It was inspiried by the [double pendulum](https://github.com/narimiran/double_pendulum) Twitter bot [@pendulum_bot](https://twitter.com/pendulum_bot), written in Python.
+
+This code sets up the equations of motion of $N$ simple pendulums using the [Udwadia-Kalaba equation](https://en.wikipedia.org/wiki/Udwadia%E2%80%93Kalaba_equation).  This set of $4N$ equations are integrated using a [Gauss-Legendre](https://en.wikipedia.org/wiki/Gauss%E2%80%93Legendre_method) implicit Runge-Kutta method.
 
 It is not intended for production use.
 
