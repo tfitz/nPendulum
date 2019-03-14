@@ -85,7 +85,7 @@ function constraintFunction( q, p::parameters )
     return ϕ
 end
 
-function solvePendulum(p::parameters, z0::Array{Float64,1}, tf::Float64, h::Float64; method=:broyden)
+function solvePendulum(p::parameters, z0::Array{Float64,1}, tf::Float64, h::Float64; method=:fixedpoint)
 
     Mass = constMass(p)
     Qex = extForceOfGravity( p )
@@ -93,7 +93,7 @@ function solvePendulum(p::parameters, z0::Array{Float64,1}, tf::Float64, h::Floa
                 q->constraintFunction(q,p),
                 p.N, 2*p.N )
 
-    Z,t = IRK.IRKadapt( F, z0, 0.0, tf, h, method=method)
+    Z,t = IRK.IRKadapt( F, z0, 0.0, tf, h; method=method)
 
     return Z,t
 

@@ -9,7 +9,7 @@ using Plots
 
 ## Parameters
 # number of pendulums:
-N = 10
+N = 8
 # ending time:
 tf = 1.
 # frames per second in the animation
@@ -22,9 +22,9 @@ num_frames = tf*fps*2 |> round |> Int
 p   = generateRandomParameters(N)
 z0  = generateRandomInitialConfig(p)
 
-@elapsed z1,t1 = solvePendulum(p, z0, tf, 0.01, method=:broyden )
+@elapsed z,t = solvePendulum(p,z0,tf,0.01, method=:broyden)
 
-@elapsed z2,t2 = solvePendulum(p,z0,tf,0.01, method=:fixedpoint )
+@elapsed z,t = solvePendulum(p,z0,tf,0.01, method=:fixedpoint)
 
 
 ## Generate the animation

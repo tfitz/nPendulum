@@ -10,13 +10,15 @@ export IRKadapt, IRKfixed
 
 function IRKadapt( f::Function, y0, t0::Float64, tf::Float64, h0::Float64;
     num_stages=3,
-    step_tol=1e-4, step_max=4096, h_min = 1e-10, iter_tol=1e-4, iter_max=100, method=:broyden)
+    step_tol=1e-4, step_max=4096, h_min = 1e-10, iter_tol=1e-4, iter_max=100,
+    method=:fixedpoint)
 
     # build the Butcher Table
     butcherTable = GaussLegendreRKRule.buildRule(num_stages)
 
     # step 1
-    y = Array{Float64,2}(undef, 1, length(y0))
+    n = length(y0)
+    y = Array{Float64,2}(undef, 1, n)
     y[:] = y0
 
     # time
@@ -36,7 +38,7 @@ function IRKadapt( f::Function, y0, t0::Float64, tf::Float64, h0::Float64;
         while step_flag == 0
             step_iter += 1
 
-            z,sub_flag,sub_err,invJ0 = irk_step( y[i-1,:], time[i-1], h, f, iter_tol, iter_max, butcherTable, method=method, invJ0=invJ0)
+            z, sub_flag, sub_err, invJ0  = irk_step( y[i-1,:], time[i-1], h, f, iter_tol, iter_max, butcherTable, method=method, invJ0=invJ0)
 
             # did step work?
             if sub_err <= step_tol
@@ -89,7 +91,8 @@ function IRKfixed( f::Function, y0, t0::Float64, tf::Float64, h::Float64;
     num_steps = length(t0:h:tf)
 
     # step 1
-    y = zeros(num_steps,length(y0))
+    n = length(y0)
+    y = zeros(num_steps,n)
     y[1,:] = y0
 
     # time stepping
@@ -115,13 +118,14 @@ end
 
 
 function irk_step( xn, tn::Float64, h::Float64, f::Function,
-    tol::Float64, iter_max::Int, butcherTable; method=:fixedpoint, invJ0 = I )
+    tol::Float64, iter_max::Int, butcherTable;
+    method=:fixedpoint, invJ0 = I )
 
     n  = length(xn)
     s  = butcherTable.num_stages
-    K  = zeros( Float64, n, s )
 
     # Make an explicit guess
+    K  = zeros( Float64, n, s )
     for i = 1:s
         K[:,i] = f( tn+h*butcherTable.c[i], xn )
     end
@@ -210,9 +214,9 @@ function broyden_iteration(f, invJ0, xn, tn, K, h, butcherTable, iter_max, tol)
         return reshape(resid, n*s)
     end
 
-    K, invJ0, flag, rel_err, broyden_iter = broyden_driver( residualK, reshape(K, n*s), invJ0, tol, iter_max )
+    K, invJ0, flag, rel_err, iter = broyden_driver( residualK, reshape(K, n*s), invJ0, tol, iter_max )
 
-    return reshape(K,n,s), invJ0, flag, rel_err, broyden_iter
+    return reshape(K,n,s), invJ0, flag, rel_err, iter
 
 end
 
