@@ -10,7 +10,7 @@ export IRKadapt, IRKfixed
 
 function IRKadapt( f::Function, y0, t0::Float64, tf::Float64, h0::Float64;
     num_stages=3,
-    step_tol=1e-4, step_max=4096, h_min = 1e-10, iter_tol=1e-4, iter_max=100)
+    step_tol=1e-4, step_max=4096, h_min = 1e-10, iter_tol=1e-4, iter_max=100, method=:broyden)
 
     # build the Butcher Table
     butcherTable = GaussLegendreRKRule.buildRule(num_stages)
@@ -32,10 +32,11 @@ function IRKadapt( f::Function, y0, t0::Float64, tf::Float64, h0::Float64;
 
         step_flag = 0
         step_iter = 0
+        invJ0 = I
         while step_flag == 0
             step_iter += 1
 
-            z,sub_flag,sub_err = irk_step( y[i-1,:], time[i-1], h, f, iter_tol, iter_max, butcherTable)
+            z,sub_flag,sub_err,invJ0 = irk_step( y[i-1,:], time[i-1], h, f, iter_tol, iter_max, butcherTable, method=method, invJ0=invJ0)
 
             # did step work?
             if sub_err <= step_tol
@@ -114,14 +115,11 @@ end
 
 
 function irk_step( xn, tn::Float64, h::Float64, f::Function,
-    tol::Float64, iter_max::Int, butcherTable )
+    tol::Float64, iter_max::Int, butcherTable; method=:fixedpoint, invJ0 = I )
 
     n  = length(xn)
     s  = butcherTable.num_stages
     K  = zeros( Float64, n, s )
-    Ks = zeros( Float64, n, s )
-
-    # TODO replace fixed-point iterations with Broyden updates
 
     # Make an explicit guess
     for i = 1:s
@@ -129,8 +127,44 @@ function irk_step( xn, tn::Float64, h::Float64, f::Function,
     end
 
     # fixed point iteration until convergence
+    if method == :fixedpoint
+         K, flag, rel_err, sub_iter = fixed_point_iteration(f, xn, tn, K, h, butcherTable, iter_max, tol)
+    elseif method == :broyden
+         K, invJ0, flag, rel_err, sub_iter = broyden_iteration(f, invJ0, xn, tn, K, h, butcherTable, iter_max, tol)
+    else
+        println("Error: solver method not defined\n")
+        return
+    end
+    #@printf("substeps = %d\n",sub_iter)
+
+    # Order 2*s: compute x(n+1)
+    sum_bk = zeros(Float64, n)
+    for i = 1:s
+        sum_bk += butcherTable.b[i]*K[:,i]
+    end
+    y = xn + h*sum_bk
+
+    # Order 2*s-1: estimate
+    sum_bk .= 0.0
+    for i = 1:s
+        sum_bk += butcherTable.btilde[i]*K[:,i]
+    end
+    z = xn + h*sum_bk
+
+    step_err = norm( y - z )
+
+    # local error estimate
+    return y, flag, step_err, invJ0
+
+end
+
+function fixed_point_iteration(f, xn, tn, K, h, butcherTable, iter_max, tol)
+    n  = length(xn)
+    s  = butcherTable.num_stages
     flag = 0
     iter = 0
+    Ks = zeros( Float64, n, s )
+    rel_err = 1.
     while flag == 0
         iter += 1
 
@@ -153,24 +187,74 @@ function irk_step( xn, tn::Float64, h::Float64, f::Function,
 
     end
 
-    # Order 2*s: compute x(n+1)
-    sum_bk = zeros(Float64, n)
-    for i = 1:s
-        sum_bk += butcherTable.b[i]*K[:,i]
+    return K, flag, rel_err, iter
+
+end
+
+function broyden_iteration(f, invJ0, xn, tn, K, h, butcherTable, iter_max, tol)
+    n  = length(xn)
+    s  = butcherTable.num_stages
+    flag = 0
+    iter = 0
+
+    function residualK(k)
+        K = reshape(k, n, s)
+        resid = zeros(n,s)
+        for i = 1:s
+            sum_ak = zeros(Float64, n)
+            for j = 1:s
+                sum_ak += butcherTable.A[i,j]*K[:,j]
+            end
+            resid[:,i] = K[:,i] - f( tn + h*butcherTable.c[i], xn + h*sum_ak )
+        end
+        return reshape(resid, n*s)
     end
-    y = xn + h*sum_bk
 
-    # Order 2*s-1: estimate
-    sum_bk .= 0.0
-    for i = 1:s
-        sum_bk += butcherTable.btilde[i]*K[:,i]
+    K, invJ0, flag, rel_err, broyden_iter = broyden_driver( residualK, reshape(K, n*s), invJ0, tol, iter_max )
+
+    return reshape(K,n,s), invJ0, flag, rel_err, broyden_iter
+
+end
+
+function broyden_driver( f , x0, invJ0, tol, iter_max )
+    # Quasi-Newton method based on Broyden's updates to the inverse of the Jacobian
+    # Here, I used the derivation from [Lambers](http://www.math.usm.edu/lambers/mat419/lecture11.pdf)
+
+    iter = 0
+    flag = 0
+    err = 1.
+
+    # initial step
+    D = invJ0
+    d = -D*f(x0)
+    x1 = x0 + d
+    F = f(x1)
+
+    while flag == 0
+
+        u = D*F
+        c = d'*( d + u )
+        D -= 1/c*(u*d')*D
+
+        iter += 1
+
+        d = -D*F
+        x1 = x1 + d
+        F = f(x1)
+
+        err = norm(F)
+
+        if err <= tol
+            flag = 1
+
+        elseif iter >= iter_max
+            flag = -1
+
+        end
+
     end
-    z = xn + h*sum_bk
 
-    step_err = norm( y - z )
-
-    # local error estimate
-    return ( y, flag, step_err )
+    return x1, D, flag, err, iter
 
 end
 
