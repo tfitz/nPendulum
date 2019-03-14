@@ -24,6 +24,6 @@ Navigate to the `src` folder, and run `julia main.jl` to automatically make the 
 ## TODO
 - make documentation
 - put **more better** annotations throughout the code
-- update the solver inside the implicit Runge-Kutta step to use Broyden updates
+- ~~update the solver inside the implicit Runge-Kutta step to use Broyden updates~~ added option, but it is slower than fixed point iteration
 - add [ProgressMeter.jl](https://github.com/timholy/ProgressMeter.jl) to both the IRK solver and the animation generator.
 - repackage the code into proper modules for submission to the Pkg registry
